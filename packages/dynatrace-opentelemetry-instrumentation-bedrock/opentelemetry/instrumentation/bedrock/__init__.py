@@ -354,8 +354,6 @@ def _set_cohere_span_attributes(span, request_body, response_body, metric_params
     input_tokens = response_body.get("token_count", {}).get("prompt_tokens")
     output_tokens = response_body.get("token_count", {}).get("response_tokens")
 
-    print("response_body", response_body)
-
     if input_tokens is None or output_tokens is None:
         meta = response_body.get("meta", {})
         billed_units = meta.get("billed_units", {})
@@ -440,7 +438,7 @@ def _set_anthropic_completion_span_attributes(
     prompt = request_body.get("prompt")
     text = response_body.get("completion")
     record_event(prompt, PromptType.INPUT, role="user", system=vendor, model=model)
-    record_event(prompt, PromptType.OUTPUT, role="system", system=vendor, model=model)
+    record_event(text, PromptType.OUTPUT, role="system", system=vendor, model=model)
 
     if should_send_prompts():
         _set_span_attribute(
@@ -523,7 +521,7 @@ def _set_anthropic_messages_span_attributes(
         span, f"{SpanAttributes.LLM_COMPLETIONS}.0.content", "assistant"
     )
     text = json.dumps(response_body.get("content"))
-    record_event(prompt, PromptType.OUTPUT, role="assistant", system=vendor, model=model)
+    record_event(text, PromptType.OUTPUT, role="assistant", system=vendor, model=model)
     if should_send_prompts():
         _set_span_attribute(
             span,
@@ -619,7 +617,7 @@ def _set_llama_span_attributes(span, request_body, response_body, metric_params)
             span, f"{SpanAttributes.LLM_COMPLETIONS}.0.role", "assistant"
         )
         text = response_body.get("generation")
-        record_event(text, PromptType.INPUT, role="assistant", system=vendor, model=model)
+        record_event(text, PromptType.OUTPUT, role="assistant", system=vendor, model=model)
         if should_send_prompts():
             _set_span_attribute(
                 span,
@@ -628,7 +626,7 @@ def _set_llama_span_attributes(span, request_body, response_body, metric_params)
             )
     else:
         for i, generation in enumerate(response_body.get("generations")):
-            record_event(generation, PromptType.INPUT, role="assistant", system=vendor, model=model)
+            record_event(generation, PromptType.OUTPUT, role="assistant", system=vendor, model=model)
             _set_span_attribute(
                 span, f"{SpanAttributes.LLM_COMPLETIONS}.{i}.role", "assistant"
             )
@@ -680,17 +678,20 @@ def _set_amazon_span_attributes(span, request_body, response_body, metric_params
                 text,
             )
 
-def record_event(text: str, type: PromptType, role: str, system: str, model: str):
+def record_event(text: str, t: PromptType, role: str, system: str, model: str):
     if Config.event_logger:
-        Config.event_logger.record(Event(
-            service_name=Config.service_name,
-            prompt=text,
-            prompt_type=type,
-            role=role,
-            system=system,
-            model=model,
-        ))
-
+        try:
+            Config.event_logger.record(Event(
+                service_name=Config.service_name,
+                prompt=text,
+                prompt_type=t,
+                role=role,
+                system=system,
+                model=model,
+            ))
+        except Exception:
+            # we silently ignore errors
+            pass
 
 def _create_metrics(meter: Meter):
     token_histogram = meter.create_histogram(

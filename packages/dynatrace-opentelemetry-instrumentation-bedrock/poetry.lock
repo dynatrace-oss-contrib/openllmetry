@@ -279,13 +279,13 @@ files = [
 
 [[package]]
 name = "dynatrace-ai-logging"
-version = "0.1.0"
+version = "0.1.1a2"
 description = ""
 optional = false
 python-versions = ">=3.9,<4.0"
 files = [
-    {file = "dynatrace_ai_logging-0.1.0-py3-none-any.whl", hash = "sha256:e9b73e87c78ba367f27968f0d1d7247f6a7c41f09ad42c901654c02c518da5c1"},
-    {file = "dynatrace_ai_logging-0.1.0.tar.gz", hash = "sha256:e22df563395946325c36f510301df90249c49a5757bfc1c296a20320cb07874c"},
+    {file = "dynatrace_ai_logging-0.1.1a2-py3-none-any.whl", hash = "sha256:a393fe4818ddebfcce5de8241f8d89db3b284c31295eaf85cea6dec12639d6b7"},
+    {file = "dynatrace_ai_logging-0.1.1a2.tar.gz", hash = "sha256:4d6ab9cfa5b66faccf03c99d298c966f57c3dcc23d0d06b7b8688558036a4834"},
 ]
 
 [package.dependencies]
@@ -294,7 +294,7 @@ requests = ">=2.32.3,<3.0.0"
 [package.source]
 type = "legacy"
 url = "https://test.pypi.org/simple"
-reference = "test"
+reference = "test-pypi"
 
 [[package]]
 name = "exceptiongroup"
@@ -1482,4 +1482,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<4"
-content-hash = "bd3b579ad5707f692a5fd726725f3c0a531724ef14a1867dc031f38a1eec08b1"
+content-hash = "1513b085a8d4df8e044dfb09d303cbccfd8be2fed9ed9b85bdd8e9880084b635"

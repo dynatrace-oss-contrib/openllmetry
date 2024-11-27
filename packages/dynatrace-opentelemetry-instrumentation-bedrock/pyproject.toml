@@ -8,7 +8,7 @@ show_missing = true
 
 [tool.poetry]
 name = "dynatrace-opentelemetry-instrumentation-bedrock"
-version = "0.0.1a0"
+version = "0.0.1a3"
 description = "OpenTelemetry Bedrock instrumentation"
 authors = [
   "Gal Kleinman <gal@traceloop.com>",
@@ -18,6 +18,11 @@ authors = [
 repository = "https://github.com/dynatrace-oss-contrib/openllmetry/tree/main/packages/opentelemetry-instrumentation-bedrock"
 license = "Apache-2.0"
 readme = "README.md"
+
+[[tool.poetry.source]]
+name = "test-pypi"
+url = "https://test.pypi.org/simple/"
+priority = "explicit"
 
 [[tool.poetry.packages]]
 include = "opentelemetry/instrumentation/bedrock"
@@ -29,7 +34,7 @@ opentelemetry-instrumentation = "^0.49b0"
 opentelemetry-semantic-conventions = "^0.49b0"
 opentelemetry-semantic-conventions-ai = "0.4.2"
 anthropic = ">=0.17.0"
-dynatrace-ai-logging = "^0.1.0"
+dynatrace-ai-logging = {version = "0.1.1a2", allow-prereleases = true, source = "test-pypi"}
 
 [tool.poetry.group.dev.dependencies]
 autopep8 = "^2.2.0"
@@ -47,7 +52,3 @@ opentelemetry-sdk = "^1.27.0"
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
-[[tool.poetry.source]]
-name = "test"
-url = "https://test.pypi.org/simple/"
-secondary = true
