@@ -34,6 +34,7 @@ from opentelemetry.semconv_ai import (
 
 from opentelemetry.instrumentation.bedrock.version import __version__
 
+from dynatrace_ai_logging.event import Event, PromptType
 
 class MetricParams:
     def __init__(
@@ -159,16 +160,16 @@ def _wrap(
 def _instrumented_model_invoke(fn, tracer, metric_params):
     @wraps(fn)
     def with_instrumentation(*args, **kwargs):
-        if context_api.get_value(SUPPRESS_LANGUAGE_MODEL_INSTRUMENTATION_KEY):
-            return fn(*args, **kwargs)
+        # if context_api.get_value(SUPPRESS_LANGUAGE_MODEL_INSTRUMENTATION_KEY):
+        #     return fn(*args, **kwargs)
 
         with tracer.start_as_current_span(
             "bedrock.completion", kind=SpanKind.CLIENT
         ) as span:
             response = fn(*args, **kwargs)
 
-            if span.is_recording():
-                _handle_call(span, kwargs, response, metric_params)
+            #if span.is_recording():
+            _handle_call(span, kwargs, response, metric_params)
 
             return response
 
@@ -369,16 +370,24 @@ def _set_cohere_span_attributes(span, request_body, response_body, metric_params
             metric_params,
         )
 
+    vendor = metric_params.vendor
+    model = metric_params.model
+    prompt = request_body.get("prompt")
+    record_event(prompt, PromptType.INPUT, role="user", system=vendor, model=model)
+
     if should_send_prompts():
         _set_span_attribute(
-            span, f"{SpanAttributes.LLM_PROMPTS}.0.user", request_body.get("prompt")
+            span, f"{SpanAttributes.LLM_PROMPTS}.0.user", prompt
         )
 
-        for i, generation in enumerate(response_body.get("generations")):
+    for i, generation in enumerate(response_body.get("generations")):
+        text = generation.get("text")
+        record_event(text, PromptType.OUTPUT, role="system", system=vendor, model=model)
+        if should_send_prompts():
             _set_span_attribute(
                 span,
                 f"{SpanAttributes.LLM_COMPLETIONS}.{i}.content",
-                generation.get("text"),
+                text,
             )
 
 
@@ -426,14 +435,21 @@ def _set_anthropic_completion_span_attributes(
             metric_params,
         )
 
+    vendor = metric_params.vendor
+    model = metric_params.model
+    prompt = request_body.get("prompt")
+    text = response_body.get("completion")
+    record_event(prompt, PromptType.INPUT, role="user", system=vendor, model=model)
+    record_event(prompt, PromptType.OUTPUT, role="system", system=vendor, model=model)
+
     if should_send_prompts():
         _set_span_attribute(
-            span, f"{SpanAttributes.LLM_PROMPTS}.0.user", request_body.get("prompt")
+            span, f"{SpanAttributes.LLM_PROMPTS}.0.user", prompt
         )
         _set_span_attribute(
             span,
             f"{SpanAttributes.LLM_COMPLETIONS}.0.content",
-            response_body.get("completion"),
+            text,
         )
 
 
@@ -486,24 +502,33 @@ def _set_anthropic_messages_span_attributes(
         )
         _record_usage_to_span(span, prompt_tokens, completion_tokens, metric_params)
 
-    if should_send_prompts():
-        for idx, message in enumerate(request_body.get("messages")):
-            _set_span_attribute(
-                span, f"{SpanAttributes.LLM_PROMPTS}.{idx}.role", message.get("role")
-            )
+    vendor = metric_params.vendor
+    model = metric_params.model
+
+    for idx, message in enumerate(request_body.get("messages")):
+        role = message.get("role")
+        prompt = json.dumps(message.get("content"))
+        _set_span_attribute(
+            span, f"{SpanAttributes.LLM_PROMPTS}.{idx}.role", role
+        )
+        record_event(prompt, PromptType.INPUT, role=role, system=vendor, model=model)
+        if should_send_prompts():
             _set_span_attribute(
                 span,
                 f"{SpanAttributes.LLM_PROMPTS}.0.content",
-                json.dumps(message.get("content")),
+                prompt,
             )
 
-        _set_span_attribute(
-            span, f"{SpanAttributes.LLM_COMPLETIONS}.0.content", "assistant"
-        )
+    _set_span_attribute(
+        span, f"{SpanAttributes.LLM_COMPLETIONS}.0.content", "assistant"
+    )
+    text = json.dumps(response_body.get("content"))
+    record_event(prompt, PromptType.OUTPUT, role="assistant", system=vendor, model=model)
+    if should_send_prompts():
         _set_span_attribute(
             span,
             f"{SpanAttributes.LLM_COMPLETIONS}.0.content",
-            json.dumps(response_body.get("content")),
+            text,
         )
 
 
@@ -535,16 +560,24 @@ def _set_ai21_span_attributes(span, request_body, response_body, metric_params):
         metric_params,
     )
 
+    vendor = metric_params.vendor
+    model = metric_params.model
+    prompt = request_body.get("prompt")
+    record_event(prompt, PromptType.INPUT, role="user", system=vendor, model=model)
+
     if should_send_prompts():
         _set_span_attribute(
-            span, f"{SpanAttributes.LLM_PROMPTS}.0.user", request_body.get("prompt")
+            span, f"{SpanAttributes.LLM_PROMPTS}.0.user", prompt
         )
 
-        for i, completion in enumerate(response_body.get("completions")):
+    for i, completion in enumerate(response_body.get("completions")):
+        text = completion.get("data").get("text")
+        record_event(text, PromptType.OUTPUT, role="system", system=vendor, model=model)
+        if should_send_prompts():
             _set_span_attribute(
                 span,
                 f"{SpanAttributes.LLM_COMPLETIONS}.{i}.content",
-                completion.get("data").get("text"),
+                text,
             )
 
 
@@ -569,26 +602,37 @@ def _set_llama_span_attributes(span, request_body, response_body, metric_params)
         metric_params,
     )
 
+    vendor = metric_params.vendor
+    model = metric_params.model
+
+    prompt = request_body.get("prompt")
     if should_send_prompts():
         _set_span_attribute(
-            span, f"{SpanAttributes.LLM_PROMPTS}.0.content", request_body.get("prompt")
+            span, f"{SpanAttributes.LLM_PROMPTS}.0.content", prompt
         )
-        _set_span_attribute(span, f"{SpanAttributes.LLM_PROMPTS}.0.role", "user")
+    _set_span_attribute(span, f"{SpanAttributes.LLM_PROMPTS}.0.role", "user")
 
-        if response_body.get("generation"):
-            _set_span_attribute(
-                span, f"{SpanAttributes.LLM_COMPLETIONS}.0.role", "assistant"
-            )
+    record_event(prompt, PromptType.INPUT, role="user", system=vendor, model=model)
+
+    if response_body.get("generation"):
+        _set_span_attribute(
+            span, f"{SpanAttributes.LLM_COMPLETIONS}.0.role", "assistant"
+        )
+        text = response_body.get("generation")
+        record_event(text, PromptType.INPUT, role="assistant", system=vendor, model=model)
+        if should_send_prompts():
             _set_span_attribute(
                 span,
                 f"{SpanAttributes.LLM_COMPLETIONS}.0.content",
-                response_body.get("generation"),
+                text,
             )
-        else:
-            for i, generation in enumerate(response_body.get("generations")):
-                _set_span_attribute(
-                    span, f"{SpanAttributes.LLM_COMPLETIONS}.{i}.role", "assistant"
-                )
+    else:
+        for i, generation in enumerate(response_body.get("generations")):
+            record_event(generation, PromptType.INPUT, role="assistant", system=vendor, model=model)
+            _set_span_attribute(
+                span, f"{SpanAttributes.LLM_COMPLETIONS}.{i}.role", "assistant"
+            )
+            if should_send_prompts():
                 _set_span_attribute(
                     span, f"{SpanAttributes.LLM_COMPLETIONS}.{i}.content", generation
                 )
@@ -614,17 +658,38 @@ def _set_amazon_span_attributes(span, request_body, response_body, metric_params
         metric_params,
     )
 
+    prompt = request_body.get("inputText")
+
+    vendor = metric_params.vendor
+    model = metric_params.model
+
+    record_event(prompt, PromptType.INPUT, "user", vendor, model)
+
     if should_send_prompts():
         _set_span_attribute(
-            span, f"{SpanAttributes.LLM_PROMPTS}.0.user", request_body.get("inputText")
+            span, f"{SpanAttributes.LLM_PROMPTS}.0.user", prompt
         )
 
-        for i, result in enumerate(response_body.get("results")):
+    for i, result in enumerate(response_body.get("results")):
+        text = result.get("outputText")
+        record_event(prompt, PromptType.OUTPUT, "system", vendor, model)
+        if should_send_prompts():
             _set_span_attribute(
                 span,
                 f"{SpanAttributes.LLM_COMPLETIONS}.{i}.content",
-                result.get("outputText"),
+                text,
             )
+
+def record_event(text: str, type: PromptType, role: str, system: str, model: str):
+    if Config.event_logger:
+        Config.event_logger.record(Event(
+            service_name=Config.service_name,
+            prompt=text,
+            prompt_type=type,
+            role=role,
+            system=system,
+            model=model,
+        ))
 
 
 def _create_metrics(meter: Meter):
@@ -659,10 +724,14 @@ def _create_metrics(meter: Meter):
 class BedrockInstrumentor(BaseInstrumentor):
     """An instrumentor for Bedrock's client library."""
 
-    def __init__(self, enrich_token_usage: bool = False, exception_logger=None):
+    from dynatrace_ai_logging import DtAiLogging
+
+    def __init__(self, enrich_token_usage: bool = False, exception_logger=None, service_name: str = "", event_logger:DtAiLogging = None):
         super().__init__()
         Config.enrich_token_usage = enrich_token_usage
         Config.exception_logger = exception_logger
+        Config.event_logger = event_logger
+        Config.service_name = service_name
 
     def instrumentation_dependencies(self) -> Collection[str]:
         return _instruments

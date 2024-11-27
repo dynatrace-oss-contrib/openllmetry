@@ -1,3 +1,5 @@
+⚠️ This is an alpha fork to test changes before contributing them back to OpenLLMetry
+
 # traceloop-sdk
 
 Traceloop’s Python SDK allows you to easily start monitoring and debugging your LLM execution. Tracing is done in a non-intrusive way, built on top of OpenTelemetry. You can choose to export the traces to Traceloop, or to your existing observability stack.
