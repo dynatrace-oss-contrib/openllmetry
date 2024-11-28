@@ -7,23 +7,33 @@ exclude_lines = ["if TYPE_CHECKING:"]
 show_missing = true
 
 [tool.poetry]
-name = "traceloop-sdk"
-version = "0.33.12"
+name = "dynatrace-openllmetry-sdk"
+version = "0.0.1a3"
 description = "Traceloop Software Development Kit (SDK) for Python"
 authors = [
   "Gal Kleinman <gal@traceloop.com>",
   "Nir Gazit <nir@traceloop.com>",
   "Tomer Friedman <tomer@traceloop.com>",
 ]
-repository = "https://github.com/traceloop/openllmetry"
-documentation = "https://traceloop.com/docs/openllmetry"
+repository = "https://github.com/dynatrace-oss-contrib/openllmetry"
 license = "Apache-2.0"
 readme = "README.md"
+
+[[tool.poetry.source]]
+name = "test-pypi"
+url = "https://test.pypi.org/simple/"
+priority = "explicit"
 
 [[tool.poetry.packages]]
 include = "traceloop/sdk"
 
 [tool.poetry.dependencies]
+
+dynatrace-ai-logging = {version = "^0.1.1a4", allow-prereleases = true, source = "test-pypi"}
+dynatrace-opentelemetry-instrumentation-openai = {version = "0.0.1a4", allow-prereleases = true, source = "test-pypi"}
+dynatrace-opentelemetry-instrumentation-bedrock = {version = "0.0.1a4", allow-prereleases = true, source = "test-pypi"}
+dynatrace-opentelemetry-instrumentation-langchain = {version = "0.0.1a3", allow-prereleases = true, source = "test-pypi"}
+
 python = ">=3.9,<4"
 opentelemetry-api = "^1.28.0"
 opentelemetry-sdk = "^1.28.0"
@@ -35,31 +45,28 @@ opentelemetry-instrumentation-sqlalchemy = "^0.49b0"
 opentelemetry-instrumentation-urllib3 = "^0.49b0"
 opentelemetry-instrumentation-threading = "^0.49b0"
 opentelemetry-semantic-conventions-ai = "0.4.2"
-opentelemetry-instrumentation-mistralai = { path = "../opentelemetry-instrumentation-mistralai", develop = true }
-opentelemetry-instrumentation-openai = { path = "../opentelemetry-instrumentation-openai", develop = true }
-opentelemetry-instrumentation-ollama = { path = "../opentelemetry-instrumentation-ollama", develop = true }
-opentelemetry-instrumentation-anthropic = { path = "../opentelemetry-instrumentation-anthropic", develop = true }
-opentelemetry-instrumentation-cohere = { path = "../opentelemetry-instrumentation-cohere", develop = true }
-opentelemetry-instrumentation-google-generativeai = { path = "../opentelemetry-instrumentation-google-generativeai", develop = true }
-opentelemetry-instrumentation-pinecone = { path = "../opentelemetry-instrumentation-pinecone", develop = true }
-opentelemetry-instrumentation-qdrant = { path = "../opentelemetry-instrumentation-qdrant", develop = true }
-opentelemetry-instrumentation-langchain = { path = "../opentelemetry-instrumentation-langchain", develop = true }
-opentelemetry-instrumentation-lancedb = { path = "../opentelemetry-instrumentation-lancedb", develop = true }
-opentelemetry-instrumentation-chromadb = { path = "../opentelemetry-instrumentation-chromadb", develop = true }
-opentelemetry-instrumentation-transformers = { path = "../opentelemetry-instrumentation-transformers", develop = true }
-opentelemetry-instrumentation-together = { path = "../opentelemetry-instrumentation-together", develop = true }
-opentelemetry-instrumentation-llamaindex = { path = "../opentelemetry-instrumentation-llamaindex", develop = true }
-opentelemetry-instrumentation-milvus = { path = "../opentelemetry-instrumentation-milvus", develop = true }
-opentelemetry-instrumentation-haystack = { path = "../opentelemetry-instrumentation-haystack", develop = true }
-opentelemetry-instrumentation-bedrock = { path = "../opentelemetry-instrumentation-bedrock", develop = true }
-opentelemetry-instrumentation-sagemaker = { path = "../opentelemetry-instrumentation-sagemaker", develop = true }
-opentelemetry-instrumentation-replicate = { path = "../opentelemetry-instrumentation-replicate", develop = true }
-opentelemetry-instrumentation-vertexai = { path = "../opentelemetry-instrumentation-vertexai", develop = true }
-opentelemetry-instrumentation-watsonx = { path = "../opentelemetry-instrumentation-watsonx", develop = true }
-opentelemetry-instrumentation-weaviate = { path = "../opentelemetry-instrumentation-weaviate", develop = true }
-opentelemetry-instrumentation-alephalpha = { path = "../opentelemetry-instrumentation-alephalpha", develop = true }
-opentelemetry-instrumentation-marqo = { path = "../opentelemetry-instrumentation-marqo", develop = true }
-opentelemetry-instrumentation-groq = { path = "../opentelemetry-instrumentation-groq", develop = true }
+opentelemetry-instrumentation-mistralai = "0.33.12"
+opentelemetry-instrumentation-ollama = "0.33.12"
+opentelemetry-instrumentation-anthropic = "0.33.12"
+opentelemetry-instrumentation-cohere = "0.33.12"
+opentelemetry-instrumentation-google-generativeai = "0.33.12"
+opentelemetry-instrumentation-pinecone = "0.33.12"
+opentelemetry-instrumentation-qdrant = "0.33.12"
+opentelemetry-instrumentation-lancedb = "0.33.12"
+opentelemetry-instrumentation-chromadb = "0.33.12"
+opentelemetry-instrumentation-transformers = "0.33.12"
+opentelemetry-instrumentation-together = "0.33.12"
+opentelemetry-instrumentation-llamaindex = "0.33.12"
+opentelemetry-instrumentation-milvus = "0.33.12"
+opentelemetry-instrumentation-haystack = "0.33.12"
+opentelemetry-instrumentation-sagemaker = "0.33.12"
+opentelemetry-instrumentation-replicate = "0.33.12"
+opentelemetry-instrumentation-vertexai = "0.33.12"
+opentelemetry-instrumentation-watsonx = "0.33.12"
+opentelemetry-instrumentation-weaviate = "0.33.12"
+opentelemetry-instrumentation-alephalpha = "0.33.12"
+opentelemetry-instrumentation-marqo = "0.33.12"
+opentelemetry-instrumentation-groq = "0.33.12"
 colorama = "^0.4.6"
 tenacity = "^8.2.3"
 pydantic = ">=1"

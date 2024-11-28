@@ -6,18 +6,24 @@ source = ["opentelemetry/instrumentation/openai"]
 exclude_lines = ["if TYPE_CHECKING:"]
 show_missing = true
 
+
 [tool.poetry]
-name = "opentelemetry-instrumentation-openai"
-version = "0.33.12"
+name = "dynatrace-opentelemetry-instrumentation-openai"
+version = "0.0.1a4"
 description = "OpenTelemetry OpenAI instrumentation"
 authors = [
   "Gal Kleinman <gal@traceloop.com>",
   "Nir Gazit <nir@traceloop.com>",
   "Tomer Friedman <tomer@traceloop.com>",
 ]
-repository = "https://github.com/traceloop/openllmetry/tree/main/packages/opentelemetry-instrumentation-openai"
+repository = "https://github.com/dynatrace-oss-contrib/openllmetry/tree/main/packages/opentelemetry-instrumentation-openai"
 license = "Apache-2.0"
 readme = "README.md"
+
+[[tool.poetry.source]]
+name = "test-pypi"
+url = "https://test.pypi.org/simple/"
+priority = "explicit"
 
 [[tool.poetry.packages]]
 include = "opentelemetry/instrumentation/openai"
@@ -29,6 +35,7 @@ opentelemetry-instrumentation = "^0.49b0"
 opentelemetry-semantic-conventions = "^0.49b0"
 opentelemetry-semantic-conventions-ai = "0.4.2"
 tiktoken = ">=0.6.0, <1"
+dynatrace-ai-logging = {version = "^0.1.1a2", allow-prereleases = true, source = "test-pypi"}
 
 [tool.poetry.group.dev.dependencies]
 autopep8 = "^2.2.0"

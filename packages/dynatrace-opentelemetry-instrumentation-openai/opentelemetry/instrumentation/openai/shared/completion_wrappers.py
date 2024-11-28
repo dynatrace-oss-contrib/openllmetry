@@ -1,5 +1,6 @@
 import logging
 
+
 from opentelemetry import context as context_api
 
 from opentelemetry.semconv_ai import (
@@ -9,6 +10,7 @@ from opentelemetry.semconv_ai import (
 )
 
 from opentelemetry.instrumentation.utils import _SUPPRESS_INSTRUMENTATION_KEY
+
 from opentelemetry.instrumentation.openai.utils import _with_tracer_wrapper, dont_throw
 from opentelemetry.instrumentation.openai.shared import (
     _set_client_attributes,
@@ -33,7 +35,6 @@ SPAN_NAME = "openai.completion"
 LLM_REQUEST_TYPE = LLMRequestTypeValues.COMPLETION
 
 logger = logging.getLogger(__name__)
-
 
 @_with_tracer_wrapper
 def completion_wrapper(tracer, wrapped, instance, args, kwargs):

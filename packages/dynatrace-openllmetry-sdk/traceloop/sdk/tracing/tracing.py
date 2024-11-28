@@ -33,6 +33,7 @@ from traceloop.sdk.utils import is_notebook
 from traceloop.sdk.utils.package_check import is_package_installed
 from typing import Callable, Dict, Optional, Set
 
+from dynatrace_ai_logging import DtAiLogging
 
 TRACER_NAME = "traceloop.tracer"
 EXCLUDED_URLS = """
@@ -61,6 +62,7 @@ class TracerWrapper(object):
     headers: Dict[str, str] = {}
     __tracer_provider: TracerProvider = None
     __image_uploader: ImageUploader = None
+    event_logger: DtAiLogging = None
 
     def __new__(
         cls,
@@ -231,6 +233,15 @@ class TracerWrapper(object):
         TracerWrapper.endpoint = endpoint
         TracerWrapper.headers = headers
 
+        headers = TracerWrapper.headers.get("Authorization")
+        token = headers[len("Api-Token "):]
+
+        TracerWrapper.event_logger = DtAiLogging(
+            endpoint_url=TracerWrapper.endpoint,
+            auth_token=token,
+        )
+
+
     @classmethod
     def verify_initialized(cls) -> bool:
         if hasattr(cls, "instance"):
@@ -264,6 +275,8 @@ def set_association_properties(properties: dict) -> None:
 
 def _set_association_properties_attributes(span, properties: dict) -> None:
     for key, value in properties.items():
+        if isinstance(value, list):
+            value = tuple(value)
         span.set_attribute(
             f"{SpanAttributes.TRACELOOP_ASSOCIATION_PROPERTIES}.{key}", value
         )
@@ -344,6 +357,7 @@ def init_instrumentations(
     instruments: Optional[Set[Instruments]] = None,
     block_instruments: Optional[Set[Instruments]] = None,
 ):
+
     block_instruments = block_instruments or set()
     instruments = instruments or set(
         Instruments
@@ -477,6 +491,8 @@ def init_openai_instrumentor(
                 enrich_token_usage=should_enrich_metrics,
                 get_common_metrics_attributes=metrics_common_attributes,
                 upload_base64_image=base64_image_uploader,
+                service_name=TracerWrapper.resource_attributes.get("service.name"),
+                event_logger=TracerWrapper.event_logger,
             )
             if not instrumentor.is_instrumented_by_opentelemetry:
                 instrumentor.instrument()
@@ -801,6 +817,8 @@ def init_bedrock_instrumentor(should_enrich_metrics: bool):
             instrumentor = BedrockInstrumentor(
                 exception_logger=lambda e: Telemetry().log_exception(e),
                 enrich_token_usage=should_enrich_metrics,
+                service_name=TracerWrapper.resource_attributes.get("service.name"),
+                event_logger=TracerWrapper.event_logger,
             )
             if not instrumentor.is_instrumented_by_opentelemetry:
                 instrumentor.instrument()
@@ -1001,6 +1019,8 @@ def metrics_common_attributes():
     association_properties = get_value("association_properties")
     if association_properties is not None:
         for key, value in association_properties.items():
+            if isinstance(value, list):
+                value = tuple(value)
             common_attributes[
                 f"{SpanAttributes.TRACELOOP_ASSOCIATION_PROPERTIES}.{key}"
             ] = value

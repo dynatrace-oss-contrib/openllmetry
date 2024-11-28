@@ -1,3 +1,5 @@
+⚠️ This is an alpha fork to test changes before contributing them back to OpenLLMetry
+
 # OpenTelemetry OpenAI Instrumentation
 
 <a href="https://pypi.org/project/opentelemetry-instrumentation-openai/">

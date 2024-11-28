@@ -4,10 +4,11 @@ import json
 import types
 import logging
 
+from dynatrace_ai_logging.event import PromptType, Event
+
 from importlib.metadata import version
 
 from opentelemetry import context as context_api
-
 from opentelemetry.instrumentation.openai.shared.config import Config
 from opentelemetry.semconv_ai import SpanAttributes
 from opentelemetry.instrumentation.openai.utils import (
@@ -102,12 +103,16 @@ def set_tools_attributes(span, tools):
 
 
 def _set_request_attributes(span, kwargs):
-    if not span.is_recording():
-        return
+
+    model = kwargs.get("model")
+    for m in kwargs.get("messages"):
+        prompt = m.get("content")
+        role = m.get("role")
+        record_event(prompt, PromptType.INPUT, role, "openai", model)
 
     _set_api_attributes(span)
     _set_span_attribute(span, SpanAttributes.LLM_SYSTEM, "OpenAI")
-    _set_span_attribute(span, SpanAttributes.LLM_REQUEST_MODEL, kwargs.get("model"))
+    _set_span_attribute(span, SpanAttributes.LLM_REQUEST_MODEL, model)
     _set_span_attribute(
         span, SpanAttributes.LLM_REQUEST_MAX_TOKENS, kwargs.get("max_tokens")
     )
@@ -135,8 +140,6 @@ def _set_request_attributes(span, kwargs):
 
 @dont_throw
 def _set_response_attributes(span, response):
-    if not span.is_recording():
-        return
 
     if "error" in response:
         _set_span_attribute(
@@ -146,7 +149,16 @@ def _set_response_attributes(span, response):
         )
         return
 
-    _set_span_attribute(span, SpanAttributes.LLM_RESPONSE_MODEL, response.get("model"))
+    model = response.get("model")
+    choices = response.get("choices")
+    for choice in choices:
+        m = choice.get("message")
+        if m:
+            role = m.get("role")
+            text = m.get("content")
+            record_event(text, PromptType.OUTPUT, role, "openai", model)
+
+    _set_span_attribute(span, SpanAttributes.LLM_RESPONSE_MODEL, model)
 
     _set_span_attribute(
         span,
@@ -289,3 +301,18 @@ def metric_shared_attributes(
         "server.address": server_address,
         "stream": is_streaming,
     }
+
+def record_event(text: str, t: PromptType, role: str, system: str, model: str):
+    if Config.event_logger:
+        try:
+            Config.event_logger.record(Event(
+                service_name=Config.service_name,
+                prompt=text,
+                prompt_type=t,
+                role=role,
+                system=system,
+                model=model,
+            ))
+        except Exception:
+            # we silently ignore errors
+            pass

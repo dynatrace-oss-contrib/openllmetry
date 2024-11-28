@@ -1,4 +1,4 @@
-⚠️ This is an alpha fork to test changes before contributing them back to OpenLLMetry
+# ⚠️ This is an alpha fork to test changes before contributing them back to OpenLLMetry
 
 # traceloop-sdk
 

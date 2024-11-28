@@ -6,7 +6,7 @@ import sys
 from posthog import Posthog
 from traceloop.sdk.version import __version__
 
-POSTHOG_API_KEY = "phc_6AT2D3sP5u4fkUZtSqgtmoKmcx8rEX8f86lpISOpAhx"
+POSTHOG_API_KEY = ""
 
 
 class Telemetry:
@@ -18,24 +18,7 @@ class Telemetry:
     def __new__(cls) -> "Telemetry":
         if not hasattr(cls, "instance"):
             obj = cls.instance = super(Telemetry, cls).__new__(cls)
-            obj._telemetry_enabled = (
-                os.getenv("TRACELOOP_TELEMETRY") or "true"
-            ).lower() == "true" and "pytest" not in sys.modules
-
-            if obj._telemetry_enabled:
-                try:
-                    obj._posthog = Posthog(
-                        project_api_key=POSTHOG_API_KEY,
-                        host="https://app.posthog.com",
-                    )
-                    obj._curr_anon_id = None
-
-                    posthog_logger = logging.getLogger("posthog")
-                    posthog_logger.disabled = True
-                except Exception:
-                    # disable telemetry if it fails
-                    obj._telemetry_enabled = False
-
+            obj._telemetry_enabled = False
         return cls.instance
 
     def _anon_id(self) -> str:
