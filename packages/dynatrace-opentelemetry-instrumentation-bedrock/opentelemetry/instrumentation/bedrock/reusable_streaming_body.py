@@ -1,4 +1,5 @@
 from botocore.response import StreamingBody
+from botocore.eventstream import EventStream
 from botocore.exceptions import (
     ReadTimeoutError,
     ResponseStreamingError,

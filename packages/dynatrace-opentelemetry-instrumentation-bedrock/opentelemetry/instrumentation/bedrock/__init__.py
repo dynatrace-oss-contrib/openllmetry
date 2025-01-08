@@ -152,6 +152,7 @@ def _wrap(
                 )
             )
             client.converse = _instrumented_converse(client.converse, tracer, metric_params)
+            client.converse_stream = _instrumented_converse_stream(client.converse_stream, tracer, metric_params)
             return client
         except Exception as e:
             end_time = time.time()
@@ -207,6 +208,25 @@ def _instrumented_model_invoke(fn, tracer, metric_params):
 
     return with_instrumentation
 
+
+def _instrumented_converse_stream(fn, tracer, metric_params):
+    @wraps(fn)
+    def with_instrumentation(*args, **kwargs):
+        # if context_api.get_value(SUPPRESS_LANGUAGE_MODEL_INSTRUMENTATION_KEY):
+        #     return fn(*args, **kwargs)
+
+        with tracer.start_as_current_span(
+                "bedrock.converse", kind=SpanKind.CLIENT
+        ) as span:
+            response = fn(*args, **kwargs)
+
+            print("HI MOM")
+            #if span.is_recording():
+            _handle_converse_stream(span, kwargs, response, metric_params)
+
+            return response
+
+    return with_instrumentation
 
 def _instrumented_model_invoke_with_response_stream(fn, tracer, metric_params):
     @wraps(fn)
@@ -269,6 +289,21 @@ def _handle_stream_call(span, kwargs, response, metric_params):
 def _handle_converse(span, kwargs, response, metric_params):
     (vendor, model) = kwargs.get("modelId").split(".")
     guardrail_converse(response, vendor, model, metric_params)
+
+@dont_throw
+def _handle_converse_stream(span, kwargs, response, metric_params):
+    (vendor, model) = kwargs.get("modelId").split(".")
+    stream = response.get('stream')
+    if stream:
+        def handler(func):
+            def wrap(*args, **kwargs):
+                e = func(*args, **kwargs)
+                if 'metadata' in e:
+                    guardrail_converse(e['metadata'], vendor, model, metric_params)
+                return e
+            return wrap
+        stream._parse_event = handler(stream._parse_event)
+
 
 @dont_throw
 def _handle_call(span, kwargs, response, metric_params):

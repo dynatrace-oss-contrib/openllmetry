@@ -31,7 +31,6 @@ trace.set_tracer_provider(provider)
 
 b = BedrockInstrumentor(
     service_name="test",
-    event_logger=None,
 )
 b.instrument()
 
@@ -116,6 +115,47 @@ class TestBedrockRuntimeAPI(unittest.TestCase):
             #inferenceConfig=inference_config,
             #additionalModelRequestFields=additional_model_fields
         )
+        print(response)
+
+    def test_converse_stream(self):
+        guardrail = {
+            'guardrailIdentifier': self.guardrail,
+            'guardrailVersion': 'DRAFT',
+            'trace': 'enabled'
+        }
+        response = self.client.converse_stream(
+            modelId="amazon." + self.model,
+            messages=self.messages,
+            guardrailConfig=guardrail
+            #system=self.system_prompts,
+            #inferenceConfig=inference_config,
+            #additionalModelRequestFields=additional_model_fields
+        )
+        stream = response.get('stream')
+        if stream:
+            for event in stream:
+
+                if 'messageStart' in event:
+                    print(f"\nRole: {event['messageStart']['role']}")
+
+                if 'contentBlockDelta' in event:
+                    print(event['contentBlockDelta']['delta']['text'], end="")
+
+                if 'messageStop' in event:
+                    print(f"\nStop reason: {event['messageStop']['stopReason']}")
+
+                if 'metadata' in event:
+                    metadata = event['metadata']
+                    if 'usage' in metadata:
+                        print("\nToken usage")
+                        print(f"Input tokens: {metadata['usage']['inputTokens']}")
+                        print(
+                            f":Output tokens: {metadata['usage']['outputTokens']}")
+                        print(f":Total tokens: {metadata['usage']['totalTokens']}")
+                    if 'metrics' in event['metadata']:
+                        print(
+                            f"Latency: {metadata['metrics']['latencyMs']} milliseconds")
+        print("done")
 
 
 
