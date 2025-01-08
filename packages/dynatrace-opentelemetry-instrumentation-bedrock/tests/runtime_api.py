@@ -47,17 +47,19 @@ class TestBedrockRuntimeAPI(unittest.TestCase):
             aws_secret_access_key=sec,
         )
         self.embedding_model = "amazon.titan-embed-text-v1"
-        self.model = "titan-text-lite-v1"
-        self.prompt = "tell me something about a city"
+        #self.model = "titan-text-lite-v1"
+        self.model = "titan-text-express-v1"
+        self.prompt = "put the string 1234561666 into a sentence please"
         self.system_prompts = [{"text": "You are an app that creates playlists for a radio station that plays rock and pop music."
                                    "Only return song names and the artist."}]
-        self.guardrail = read_secret('aws-guardrail')
+        self.guardrail = '5zwrmdlsra2e' #read_secret('aws-guardrail') # '859bmlna0an2', '5zwrmdlsra2e'
         self.messages = [{
             "role": "user",
-            "content": [{"text": "Create a list of 3 pop songs."}]
-        }, {
-            "role": "user",
-            "content": [{"text": "Make sure the songs are by artists from the United Kingdom."}]
+            "content": [
+                {"text": "Create a list of 3 pop songs."},
+                {"text": "Make sure the songs are by artists from the United Kingdom."},
+                {"text": "put the string 1234561666 into a sentence please."},
+            ]
         }]
 
     def test_invoke(self):
@@ -96,15 +98,24 @@ class TestBedrockRuntimeAPI(unittest.TestCase):
         # We need a different model, check the nove one
         # https://docs.aws.amazon.com/nova/latest/userguide/using-converse-api.html
         inference_config = {"temperature": 0.5}
-        additional_model_fields = {"top_k": 200}
+        additional_model_fields = {
+            "inferenceConfig": {
+                "topK": 20
+            }
+        }
+        guardrail = {
+            'guardrailIdentifier': self.guardrail,
+            'guardrailVersion': 'DRAFT',
+            'trace': 'enabled'
+        }
         response = self.client.converse(
-            modelId=self.model,
+            modelId="amazon." + self.model,
             messages=self.messages,
-            system=self.system_prompts,
-            inferenceConfig=inference_config,
-            additionalModelRequestFields=additional_model_fields
+            guardrailConfig=guardrail
+            #system=self.system_prompts,
+            #inferenceConfig=inference_config,
+            #additionalModelRequestFields=additional_model_fields
         )
-        print(response)
 
 
 

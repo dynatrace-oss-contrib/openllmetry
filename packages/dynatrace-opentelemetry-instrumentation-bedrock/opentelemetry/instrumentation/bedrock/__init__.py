@@ -5,8 +5,10 @@ import json
 import logging
 import os
 import time
+from operator import truediv
 from typing import Collection
 from opentelemetry.instrumentation.bedrock.config import Config
+from opentelemetry.instrumentation.bedrock.guardrail import guardrail_handling, guardrail_converse
 from opentelemetry.instrumentation.bedrock.reusable_streaming_body import (
     ReusableStreamingBody,
 )
@@ -43,6 +45,13 @@ class MetricParams:
         choice_counter: Counter,
         duration_histogram: Histogram,
         exception_counter: Counter,
+        guardrail_counter: Counter,
+        guardrail_latency_histogram: Histogram,
+        guardrail_coverage: Counter,
+            guardrail_sensitive_info: Counter,
+        guardrail_topic: Counter,
+        guardrail_content: Counter,
+            guardrail_words: Counter,
     ):
         self.vendor = ""
         self.model = ""
@@ -52,6 +61,13 @@ class MetricParams:
         self.duration_histogram = duration_histogram
         self.exception_counter = exception_counter
         self.start_time = time.time()
+        self.guardrail_counter = guardrail_counter
+        self.guardrail_latency_histogram = guardrail_latency_histogram
+        self.guardrail_coverage = guardrail_coverage
+        self.guardrail_sensitive_info = guardrail_sensitive_info
+        self.guardrail_topic = guardrail_topic
+        self.guardrail_content = guardrail_content
+        self.guardrail_words = guardrail_words
 
 
 logger = logging.getLogger(__name__)
@@ -138,6 +154,7 @@ def _wrap(
                     client.invoke_model_with_response_stream, tracer, metric_params
                 )
             )
+            client.converse = _instrumented_converse(client.converse, tracer, metric_params)
             return client
         except Exception as e:
             end_time = time.time()
@@ -156,6 +173,24 @@ def _wrap(
 
     return wrapped(*args, **kwargs)
 
+
+def _instrumented_converse(fn, tracer, metric_params):
+    @wraps(fn)
+    def with_instrumentation(*args, **kwargs):
+        # if context_api.get_value(SUPPRESS_LANGUAGE_MODEL_INSTRUMENTATION_KEY):
+        #     return fn(*args, **kwargs)
+
+        with tracer.start_as_current_span(
+                "bedrock.converse", kind=SpanKind.CLIENT
+        ) as span:
+            response = fn(*args, **kwargs)
+
+            #if span.is_recording():
+            _handle_converse(span, kwargs, response, metric_params)
+
+            return response
+
+    return with_instrumentation
 
 def _instrumented_model_invoke(fn, tracer, metric_params):
     @wraps(fn)
@@ -191,7 +226,6 @@ def _instrumented_model_invoke_with_response_stream(fn, tracer, metric_params):
         return response
 
     return with_instrumentation
-
 
 def _handle_stream_call(span, kwargs, response, metric_params):
     @dont_throw
@@ -234,6 +268,10 @@ def _handle_stream_call(span, kwargs, response, metric_params):
 
     response["body"] = StreamingWrapper(response["body"], stream_done)
 
+@dont_throw
+def _handle_converse(span, kwargs, response, metric_params):
+    (vendor, model) = kwargs.get("modelId").split(".")
+    guardrail_converse(response, vendor, model, metric_params)
 
 @dont_throw
 def _handle_call(span, kwargs, response, metric_params):
@@ -248,6 +286,8 @@ def _handle_call(span, kwargs, response, metric_params):
     metric_params.vendor = vendor
     metric_params.model = model
     metric_params.is_stream = False
+
+    guardrail_handling(response_body, vendor, model, metric_params)
 
     _set_span_attribute(span, SpanAttributes.LLM_SYSTEM, vendor)
     _set_span_attribute(span, SpanAttributes.LLM_REQUEST_MODEL, model)
@@ -719,7 +759,49 @@ def _create_metrics(meter: Meter):
         description="Number of exceptions occurred during chat completions",
     )
 
-    return token_histogram, choice_counter, duration_histogram, exception_counter
+    guardrail_counter = meter.create_counter(
+        name="gen_ai.bedrock.guardrail.activation",
+        unit="",
+        description="Number of guardrail activation",
+    )
+
+    guardrail_latency_histogram = meter.create_histogram(
+        name="gen_ai.bedrock.guardrail.latency",
+        unit="ms",
+        description="GenAI guardrail latency",
+    )
+
+    guardrail_coverage = meter.create_counter(
+        name="gen_ai.bedrock.guardrail.coverage",
+        unit="char",
+        description="GenAI guardrail coverage",
+    )
+
+    guardrail_sensitive_info = meter.create_counter(
+        name="gen_ai.bedrock.guardrail.sensitive_info",
+        unit="",
+        description="GenAI guardrail sensitive information protection",
+    )
+
+    guardrail_topic = meter.create_counter(
+        name="gen_ai.bedrock.guardrail.topics",
+        unit="",
+        description="GenAI guardrail topics protection",
+    )
+
+    guardrail_content = meter.create_counter(
+        name="gen_ai.bedrock.guardrail.content",
+        unit="",
+        description="GenAI guardrail content filter protection",
+    )
+
+    guardrail_words = meter.create_counter(
+        name="gen_ai.bedrock.guardrail.words",
+        unit="",
+        description="GenAI guardrail words filter protection",
+    )
+
+    return token_histogram, choice_counter, duration_histogram, exception_counter, guardrail_counter, guardrail_latency_histogram, guardrail_coverage, guardrail_sensitive_info, guardrail_topic, guardrail_content, guardrail_words
 
 
 class BedrockInstrumentor(BaseInstrumentor):
@@ -751,6 +833,13 @@ class BedrockInstrumentor(BaseInstrumentor):
                 choice_counter,
                 duration_histogram,
                 exception_counter,
+                guardrail_counter,
+                guardrail_latency_histogram,
+                guardrail_coverage,
+                guardrail_sensitive_info,
+                guardrail_topic,
+                guardrail_content,
+                guardrail_words,
             ) = _create_metrics(meter)
         else:
             (
@@ -758,10 +847,27 @@ class BedrockInstrumentor(BaseInstrumentor):
                 choice_counter,
                 duration_histogram,
                 exception_counter,
-            ) = (None, None, None, None)
+                guardrail_counter,
+                guardrail_latency_histogram,
+                guardrail_coverage,
+                guardrail_sensitive_info,
+                guardrail_topic,
+                guardrail_content,
+                guardrail_words,
+            ) = (None, None, None, None, None, None, None, None, None, None, None)
 
         metric_params = MetricParams(
-            token_histogram, choice_counter, duration_histogram, exception_counter
+            token_histogram,
+            choice_counter,
+            duration_histogram,
+            exception_counter,
+            guardrail_counter,
+            guardrail_latency_histogram,
+            guardrail_coverage,
+            guardrail_sensitive_info,
+            guardrail_topic,
+            guardrail_content,
+            guardrail_words,
         )
 
         for wrapped_method in WRAPPED_METHODS:
