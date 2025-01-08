@@ -5,7 +5,6 @@ import json
 import logging
 import os
 import time
-from operator import truediv
 from typing import Collection
 from opentelemetry.instrumentation.bedrock.config import Config
 from opentelemetry.instrumentation.bedrock.guardrail import guardrail_handling, guardrail_converse
@@ -35,8 +34,6 @@ from opentelemetry.semconv_ai import (
 )
 
 from opentelemetry.instrumentation.bedrock.version import __version__
-
-from dynatrace_ai_logging.event import Event, PromptType
 
 class MetricParams:
     def __init__(
@@ -411,7 +408,6 @@ def _set_cohere_span_attributes(span, request_body, response_body, metric_params
     vendor = metric_params.vendor
     model = metric_params.model
     prompt = request_body.get("prompt")
-    record_event(prompt, PromptType.INPUT, role="user", system=vendor, model=model)
 
     if should_send_prompts():
         _set_span_attribute(
@@ -420,7 +416,6 @@ def _set_cohere_span_attributes(span, request_body, response_body, metric_params
 
     for i, generation in enumerate(response_body.get("generations")):
         text = generation.get("text")
-        record_event(text, PromptType.OUTPUT, role="system", system=vendor, model=model)
         if should_send_prompts():
             _set_span_attribute(
                 span,
@@ -477,8 +472,6 @@ def _set_anthropic_completion_span_attributes(
     model = metric_params.model
     prompt = request_body.get("prompt")
     text = response_body.get("completion")
-    record_event(prompt, PromptType.INPUT, role="user", system=vendor, model=model)
-    record_event(text, PromptType.OUTPUT, role="system", system=vendor, model=model)
 
     if should_send_prompts():
         _set_span_attribute(
@@ -549,7 +542,6 @@ def _set_anthropic_messages_span_attributes(
         _set_span_attribute(
             span, f"{SpanAttributes.LLM_PROMPTS}.{idx}.role", role
         )
-        record_event(prompt, PromptType.INPUT, role=role, system=vendor, model=model)
         if should_send_prompts():
             _set_span_attribute(
                 span,
@@ -561,7 +553,6 @@ def _set_anthropic_messages_span_attributes(
         span, f"{SpanAttributes.LLM_COMPLETIONS}.0.content", "assistant"
     )
     text = json.dumps(response_body.get("content"))
-    record_event(text, PromptType.OUTPUT, role="assistant", system=vendor, model=model)
     if should_send_prompts():
         _set_span_attribute(
             span,
@@ -601,7 +592,6 @@ def _set_ai21_span_attributes(span, request_body, response_body, metric_params):
     vendor = metric_params.vendor
     model = metric_params.model
     prompt = request_body.get("prompt")
-    record_event(prompt, PromptType.INPUT, role="user", system=vendor, model=model)
 
     if should_send_prompts():
         _set_span_attribute(
@@ -610,7 +600,6 @@ def _set_ai21_span_attributes(span, request_body, response_body, metric_params):
 
     for i, completion in enumerate(response_body.get("completions")):
         text = completion.get("data").get("text")
-        record_event(text, PromptType.OUTPUT, role="system", system=vendor, model=model)
         if should_send_prompts():
             _set_span_attribute(
                 span,
@@ -650,14 +639,12 @@ def _set_llama_span_attributes(span, request_body, response_body, metric_params)
         )
     _set_span_attribute(span, f"{SpanAttributes.LLM_PROMPTS}.0.role", "user")
 
-    record_event(prompt, PromptType.INPUT, role="user", system=vendor, model=model)
 
     if response_body.get("generation"):
         _set_span_attribute(
             span, f"{SpanAttributes.LLM_COMPLETIONS}.0.role", "assistant"
         )
         text = response_body.get("generation")
-        record_event(text, PromptType.OUTPUT, role="assistant", system=vendor, model=model)
         if should_send_prompts():
             _set_span_attribute(
                 span,
@@ -666,7 +653,6 @@ def _set_llama_span_attributes(span, request_body, response_body, metric_params)
             )
     else:
         for i, generation in enumerate(response_body.get("generations")):
-            record_event(generation, PromptType.OUTPUT, role="assistant", system=vendor, model=model)
             _set_span_attribute(
                 span, f"{SpanAttributes.LLM_COMPLETIONS}.{i}.role", "assistant"
             )
@@ -701,8 +687,6 @@ def _set_amazon_span_attributes(span, request_body, response_body, metric_params
     vendor = metric_params.vendor
     model = metric_params.model
 
-    record_event(prompt, PromptType.INPUT, "user", vendor, model)
-
     if should_send_prompts():
         _set_span_attribute(
             span, f"{SpanAttributes.LLM_PROMPTS}.0.user", prompt
@@ -710,7 +694,6 @@ def _set_amazon_span_attributes(span, request_body, response_body, metric_params
 
     for i, result in enumerate(response_body.get("results")):
         text = result.get("outputText")
-        record_event(prompt, PromptType.OUTPUT, "system", vendor, model)
         if should_send_prompts():
             _set_span_attribute(
                 span,
@@ -718,20 +701,7 @@ def _set_amazon_span_attributes(span, request_body, response_body, metric_params
                 text,
             )
 
-def record_event(text: str, t: PromptType, role: str, system: str, model: str):
-    if Config.event_logger:
-        try:
-            Config.event_logger.record(Event(
-                service_name=Config.service_name,
-                prompt=text,
-                prompt_type=t,
-                role=role,
-                system=system,
-                model=model,
-            ))
-        except Exception:
-            # we silently ignore errors
-            pass
+
 
 def _create_metrics(meter: Meter):
     token_histogram = meter.create_histogram(
@@ -807,13 +777,11 @@ def _create_metrics(meter: Meter):
 class BedrockInstrumentor(BaseInstrumentor):
     """An instrumentor for Bedrock's client library."""
 
-    from dynatrace_ai_logging import DtAiLogging
 
-    def __init__(self, enrich_token_usage: bool = False, exception_logger=None, service_name: str = "", event_logger:DtAiLogging = None):
+    def __init__(self, enrich_token_usage: bool = False, exception_logger=None, service_name: str = ""):
         super().__init__()
         Config.enrich_token_usage = enrich_token_usage
         Config.exception_logger = exception_logger
-        Config.event_logger = event_logger
         Config.service_name = service_name
 
     def instrumentation_dependencies(self) -> Collection[str]:
